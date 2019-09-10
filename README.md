@@ -10,4 +10,5 @@ A text library designed for improving terminal user interfaces, includes ANSI, A
     table generator for displaying data in clean customizable text tables
   * ANSI library to provide VT100 terminal coloring, styling, cursor, and
     display control 
-
+  * Loaders to indicate to user that the program is loading using either a
+    spinner or progress bar
