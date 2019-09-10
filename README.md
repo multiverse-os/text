@@ -1,41 +1,13 @@
-# Text Formatting
-This package is a collection of text formatting tools and utilities to for the
-`cli-framework` to use.
+<img src="https://avatars2.githubusercontent.com/u/24763891?s=400&u=c1150e7da5667f47159d433d8e49dad99a364f5f&v=4"  width="256px" height="256px" align="right" alt="Multiverse OS Logo">
 
-ansi
+## Multiverse OS: CLI `text` library
+**URL** [multiverse-os.org](https://multiverse-os.org)
 
-Implements the ANSI VT100 control set. Please refer to http://www.termsys.demon.co.uk/vtansi.htm
+A text library designed for improving terminal user interfaces, includes ANSI, ASCII, and other functionality designed to imrprove CLI user experience. Subcomponents include:
 
-Offers two palettes: 16 colors, and 256 color ANSI text and background coloring.
-Additionally, it provides styling, cursor movement, and other terminal
-manipulation.
+  * Human readability converter for bytes, and more to come 
+  * ASCII banner generator using figlet fonts, ASCII graph generation, and ASCII
+    table generator for displaying data in clean customizable text tables
+  * ANSI library to provide VT100 terminal coloring, styling, cursor, and
+    display control 
 
-```
-  a := ansi.Wrap(tcpConn)
-  
-  //Read, Write, Close as normal
-  a.Read()
-  a.Write()
-  a.Close()
-  
-  //Shorthand for a.Write(ansi.Set(..))
-  a.Set(ansi.Green, ansi.BlueBG)
-  
-  //Send query
-  a.QueryCursorPosition()
-  //Await report
-  report := <- a.Reports
-  report.Type//=> ansi.Position
-  report.Pos.Row
-  report.Pos.Col
-```
-
-Other common tasks, such as creating tables, and spinners, and prompts provided
-in a way that the developer has all the tools they need to build high quality,
-consistent, and easy to use command-line interfaces.
-
-## Functionality Ideas
-**1)** The ability to interact with a terminal in a standard way, maybe even put it
-in its own terminal package. Important features: (a) know how much width is
-available. Align text: left, right center without needing to do math or
-anything. (b) clearing screen (c) draw different shapes 
