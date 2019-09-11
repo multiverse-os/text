@@ -1,9 +1,20 @@
 package text
 
-func Repeat(character string, times int) string {
-	repeated := ""
-	for count := 1; count <= times; count++ {
-		repeated += character
+import (
+	"fmt"
+)
+
+func Box(text string) {
+	l := len(text)
+	fmt.Printf("╭")
+	for i := 0; i < l+2; i++ {
+		fmt.Printf("─")
 	}
-	return repeated
+	fmt.Printf("╮\n")
+	fmt.Printf("│ %v │\n", text)
+	fmt.Printf("╰")
+	for i := 0; i < l+2; i++ {
+		fmt.Printf("─")
+	}
+	fmt.Printf("╯\n")
 }
