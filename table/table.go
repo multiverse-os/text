@@ -1,355 +1,198 @@
-package simpletable
+// Copyright 2017 modood. All rights reserved.
+// license that can be found in the LICENSE file.
+
+// Package table produces a string that represents slice of structs data in a text table
+package table
 
 import (
+	"errors"
 	"fmt"
-	"math"
-	"strings"
+	"reflect"
 )
 
-// Table main table object
-type Table struct {
-	Header   *Header
-	Body     *Body
-	Footer   *Footer
-	style    *Style
-	rows     []*tblRow
-	columns  []*tblColumn
-	spanned  []*Cell
-	dividers []*dividerCell
+type bd struct {
+	H  rune // BOX DRAWINGS HORIZONTAL
+	V  rune // BOX DRAWINGS VERTICAL
+	VH rune // BOX DRAWINGS VERTICAL AND HORIZONTAL
+	HU rune // BOX DRAWINGS HORIZONTAL AND UP
+	HD rune // BOX DRAWINGS HORIZONTAL AND DOWN
+	VL rune // BOX DRAWINGS VERTICAL AND LEFT
+	VR rune // BOX DRAWINGS VERTICAL AND RIGHT
+	DL rune // BOX DRAWINGS DOWN AND LEFT
+	DR rune // BOX DRAWINGS DOWN AND RIGHT
+	UL rune // BOX DRAWINGS UP AND LEFT
+	UR rune // BOX DRAWINGS UP AND RIGHT
 }
 
-//SetStyle sets table style
-func (t *Table) SetStyle(style *Style) {
-	t.style = style
+var m = map[string]bd{
+	"ascii":       bd{'-', '|', '+', '+', '+', '+', '+', '+', '+', '+', '+'},
+	"box-drawing": bd{'─', '│', '┼', '┴', '┬', '┤', '├', '┐', '┌', '┘', '└'},
 }
 
-// String returns table as a toString
-func (t *Table) String() string {
-	t.refresh()
+// Output formats slice of structs data and writes to standard output.(Using box drawing characters)
+func Output(slice interface{}) {
+	fmt.Println(Table(slice))
+}
 
-	// TODO: protect against wrong spans
+// OutputA formats slice of structs data and writes to standard output.(Using standard ascii characters)
+func OutputA(slice interface{}) {
+	fmt.Println(AsciiTable(slice))
+}
 
-	t.initCellContent()
-	t.prepareRows()
-	t.prepareColumns()
-
-	t.resizeRows()
-	t.resizeColumns()
-
-	s := []string{}
-
-	b := t.borderTop()
-	if b != "" {
-		s = append(s, b)
+// Table formats slice of structs data and returns the resulting string.(Using box drawing characters)
+func Table(slice interface{}) string {
+	coln, colw, rows, err := parse(slice)
+	if err != nil {
+		return err.Error()
 	}
+	table := table(coln, colw, rows, m["box-drawing"])
+	return table
+}
 
-	for _, r := range t.rows {
-		s = append(s, t.borderLeftRight(r.toStringSlice(), r.isDivider())...)
+// AsciiTable formats slice of structs data and returns the resulting string.(Using standard ascii characters)
+func AsciiTable(slice interface{}) string {
+	coln, colw, rows, err := parse(slice)
+	if err != nil {
+		return err.Error()
 	}
+	table := table(coln, colw, rows, m["ascii"])
+	return table
+}
 
-	b = t.borderBottom()
-	if b != "" {
-		s = append(s, b)
+func parse(slice interface{}) (
+	coln []string, // name of columns
+	colw []int, // width of columns
+	rows [][]string, // rows of content
+	err error,
+) {
+
+	s, err := sliceconv(slice)
+	if err != nil {
+		return
 	}
-
-	return strings.Join(s, "\n")
-}
-
-// Print prints table
-func (t *Table) Print() {
-	fmt.Print(t.String())
-}
-
-// Println prints table with new line below
-func (t *Table) Println() {
-	fmt.Println(t.String())
-}
-
-// refresh resets table meta data (t.rows, t.columns, t.spanned, t.dividers)
-func (t *Table) refresh() {
-	t.rows = []*tblRow{}
-	t.columns = []*tblColumn{}
-	t.spanned = []*Cell{}
-	t.dividers = []*dividerCell{}
-}
-
-// borderTop returns top table border
-func (t *Table) borderTop() string {
-	s := t.style.Border
-	return t.line(s.TopLeft, s.Top, s.TopRight, s.TopIntersection)
-}
-
-// borderBottom returns bottom table border
-func (t *Table) borderBottom() string {
-	s := t.style.Border
-	return t.line(s.BottomLeft, s.Bottom, s.BottomRight, s.BottomIntersection)
-}
-
-// borderLeftRight returns bordered row as a toString
-func (t *Table) borderLeftRight(s []string, d bool) []string {
-	if d {
-		return s
-	}
-
-	for i, v := range s {
-		s[i] = fmt.Sprintf("%s%s%s", t.style.Border.Left, v, t.style.Border.Right)
-	}
-
-	return s
-}
-
-// line returns line (border or divider) as a toString
-func (t *Table) line(l, c, r, i string) string {
-	b := []string{}
-	for _, col := range t.columns {
-		b = append(b, strings.Repeat(c, col.getWidth()+2))
-	}
-
-	return fmt.Sprintf("%s%s%s", l, strings.Join(b, i), r)
-}
-
-// textSlice2CellSlice casts []*Cell to []cellInterface cause it's not possible do this:
-//     s := append([]cellInterface{}, t...)
-func (t *Table) textSlice2CellSlice(c []*Cell) []cellInterface {
-	r := []cellInterface{}
-
-	for _, tc := range c {
-		r = append(r, tc)
-	}
-
-	return r
-}
-
-// initCellContent loads content for all Cells of table (t.Header.Cells, t.Footer.Cells and t.Body.Cells)
-func (t *Table) initCellContent() {
-	t.initContent(t.Header.Cells...)
-
-	for _, c := range t.Body.Cells {
-		t.initContent(c...)
-	}
-
-	t.initContent(t.Footer.Cells...)
-}
-
-// initContent loads content in a slice of Cell
-func (t *Table) initContent(s ...*Cell) {
-	for _, c := range s {
-		c.content = newContent(c.Text)
-	}
-}
-
-// prepareRows fills t.rows slice from t.Header, t.Body and t.Footer
-func (t *Table) prepareRows() {
-	hlen := len(t.Header.Cells)
-	if hlen > 0 {
-		t.rows = append(t.rows, &tblRow{
-			Cells: t.textSlice2CellSlice(t.Header.Cells),
-			Table: t,
-		})
-
-		d := &dividerCell{
-			span: hlen,
+	for i, u := range s {
+		v := reflect.ValueOf(u)
+		t := reflect.TypeOf(u)
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
+			t = t.Elem()
 		}
-
-		t.rows = append(t.rows, &tblRow{
-			Cells: []cellInterface{
-				d,
-			},
-			Table: t,
-		})
-
-		t.dividers = append(t.dividers, d)
-	}
-
-	for _, r := range t.Body.Cells {
-		t.rows = append(t.rows, &tblRow{
-			Cells: t.textSlice2CellSlice(r),
-			Table: t,
-		})
-	}
-
-	flen := len(t.Footer.Cells)
-	if flen > 0 {
-		d := &dividerCell{
-			span: hlen,
+		if v.Kind() != reflect.Struct {
+			err = errors.New("warning: table: items of slice should be on struct value")
+			return
 		}
+		var row []string
 
-		t.rows = append(t.rows, &tblRow{
-			Cells: []cellInterface{
-				d,
-			},
-			Table: t,
-		})
+		m := 0 // count of unexported field
+		for n := 0; n < v.NumField(); n++ {
+			if t.Field(n).PkgPath != "" {
+				m++
+				continue
+			}
+			cn := t.Field(n).Name
+			cv := fmt.Sprintf("%+v", v.FieldByName(cn).Interface())
 
-		t.dividers = append(t.dividers, d)
-
-		t.rows = append(t.rows, &tblRow{
-			Cells: t.textSlice2CellSlice(t.Footer.Cells),
-			Table: t,
-		})
-	}
-}
-
-// prepareColumns fills t.columns slice from t.rows
-func (t *Table) prepareColumns() {
-	m := [][]cellInterface{}
-
-	for _, r := range t.rows {
-		row := []cellInterface{}
-
-		for _, c := range r.Cells {
-			row = append(row, c)
-			span := 0
-			var p cellInterface
-			var tc *Cell
-
-			switch v := c.(type) {
-			case *Cell:
-				span = v.Span
-				p = v
-				tc = v
-			case *dividerCell:
-				span = v.span
-				p = v
+			if i == 0 {
+				coln = append(coln, cn)
+				colw = append(colw, len(cn))
+			}
+			if colw[n-m] < len(cv) {
+				colw[n-m] = len(cv)
 			}
 
-			if span > 1 {
-				empty := []*emptyCell{}
+			row = append(row, cv)
+		}
+		rows = append(rows, row)
+	}
+	return coln, colw, rows, nil
+}
 
-				for i := 1; i < span; i++ {
-					empty = append(empty, &emptyCell{
-						parent: p,
-					})
-				}
+func table(coln []string, colw []int, rows [][]string, b bd) (table string) {
+	head := [][]rune{[]rune{b.DR}, []rune{b.V}, []rune{b.VR}}
+	bttm := []rune{b.UR}
+	for i, v := range colw {
+		head[0] = append(head[0], []rune(repeat(v+2, b.H)+string(b.HD))...)
+		head[1] = append(head[1], []rune(" "+coln[i]+repeat(v-len(coln[i])+1, ' ')+string(b.V))...)
+		head[2] = append(head[2], []rune(repeat(v+2, b.H)+string(b.VH))...)
+		bttm = append(bttm, []rune(repeat(v+2, b.H)+string(b.HU))...)
+	}
+	head[0][len(head[0])-1] = b.DL
+	head[2][len(head[2])-1] = b.VL
+	bttm[len(bttm)-1] = b.UL
 
-				for _, c := range empty {
-					row = append(row, c)
-				}
+	var body [][]rune
+	for _, r := range rows {
+		row := []rune{b.V}
+		for i, v := range colw {
+			// handle non-ascii character
+			l := length([]rune(r[i]))
 
-				if tc != nil {
-					t.spanned = append(t.spanned, tc)
-				}
+			row = append(row, []rune(" "+r[i]+repeat(v-l+1, ' ')+string(b.V))...)
+		}
+		body = append(body, row)
+	}
 
-				switch v := c.(type) {
-				case *Cell:
-					v.children = empty
-				case *dividerCell:
-					v.children = empty
-				}
+	for _, v := range head {
+		table += string(v) + "\n"
+	}
+	for _, v := range body {
+		table += string(v) + "\n"
+	}
+	table += string(bttm)
+	return table
+}
+
+func sliceconv(slice interface{}) ([]interface{}, error) {
+	v := reflect.ValueOf(slice)
+	if v.Kind() != reflect.Slice {
+		return nil, errors.New("warning: sliceconv: param \"slice\" should be on slice value")
+	}
+
+	l := v.Len()
+	r := make([]interface{}, l)
+	for i := 0; i < l; i++ {
+		r[i] = v.Index(i).Interface()
+	}
+	return r, nil
+}
+
+func repeat(time int, char rune) string {
+	var s = make([]rune, time)
+	for i := range s {
+		s[i] = char
+	}
+	return string(s)
+}
+
+func length(r []rune) int {
+	// CJK(Chinese, Japanese, Korean)
+	type cjk struct {
+		from rune
+		to   rune
+	}
+
+	// References:
+	// -   [Unicode Table](http://www.tamasoft.co.jp/en/general-info/unicode.html)
+	// -   [汉字 Unicode 编码范围](http://www.qqxiuzi.cn/zh/hanzi-unicode-bianma.php)
+
+	var a = []cjk{
+		{0x2E80, 0x9FD0},   // Chinese, Hiragana, Katakana, ...
+		{0xAC00, 0xD7A3},   // Hangul
+		{0xF900, 0xFACE},   // Kanji
+		{0xFE00, 0xFE6C},   // Fullwidth
+		{0xFF00, 0xFF60},   // Fullwidth again
+		{0x20000, 0x2FA1D}, // Extension
+		// More? PRs are aways welcome here.
+	}
+	length := len(r)
+l:
+	for _, v := range r {
+		for _, c := range a {
+			if v >= c.from && v <= c.to {
+				length++
+				continue l
 			}
 		}
-
-		m = append(m, row)
 	}
-
-	m = t.transposeCells(m)
-	for _, r := range m {
-		c := &tblColumn{
-			Cells: r,
-			Table: t,
-		}
-
-		for _, cell := range c.Cells {
-			cell.setColumn(c)
-		}
-
-		t.columns = append(t.columns, c)
-	}
-}
-
-// transposeCells transposes cells matrix - needed for t.columns filling
-func (t *Table) transposeCells(i [][]cellInterface) [][]cellInterface {
-	r := [][]cellInterface{}
-
-	for x := 0; x < len(i[0]); x++ {
-		r = append(r, make([]cellInterface, len(i)))
-	}
-
-	for x, row := range i {
-		for y, c := range row {
-			r[y][x] = c
-		}
-	}
-
-	return r
-}
-
-// resizeColumns calculate column height
-func (t *Table) resizeRows() {
-	for _, r := range t.rows {
-		r.resize()
-	}
-}
-
-// resizeColumns calculate column width (text cells and dividers)
-func (t *Table) resizeColumns() {
-	for _, c := range t.columns {
-		c.resize()
-	}
-
-	for _, c := range t.spanned {
-		c.resize()
-	}
-
-	for _, d := range t.dividers {
-		s := t.size()
-		d.setWidth(s)
-	}
-}
-
-// incrementColumns bulk increment columns for specified length
-func (t *Table) incrementColumns(c []*tblColumn, length int) {
-	sizes := t.carve(length, len(c))
-
-	for i, col := range c {
-		col.incrementWidth(sizes[i])
-	}
-}
-
-// carve splits length into a slice of integers, the sum of which is equal to length, and the count - equal to parts
-func (t *Table) carve(length, parts int) []int {
-	r := []int{}
-	step := int(math.Floor(float64(length) / float64(parts)))
-	if step*parts != length {
-		step++
-	}
-
-	for i := 0; i < parts; i++ {
-		var n int
-		if length < step {
-			n = length
-		} else {
-			n = step
-		}
-
-		length -= n
-		r = append(r, n)
-	}
-
-	return r
-}
-
-// size returns table content size.
-func (t *Table) size() int {
-	return t.rows[0].len()
-}
-
-// New is a Table constructor. It loads struct data, ready to be manipulated.
-func New() *Table {
-	return &Table{
-		style: StyleDefault,
-		Header: &Header{
-			Cells: []*Cell{},
-		},
-		Body: &Body{
-			Cells: [][]*Cell{},
-		},
-		Footer: &Footer{
-			Cells: []*Cell{},
-		},
-		rows:     []*tblRow{},
-		columns:  []*tblColumn{},
-		spanned:  []*Cell{},
-		dividers: []*dividerCell{},
-	}
+	return length
 }
