@@ -2,10 +2,8 @@ package humanize
 
 import (
 	"errors"
-	"math"
 	"strconv"
 	"strings"
-	"unicode"
 )
 
 var unitError = errors.New("byte must include a unit like M, MB, MiB, G, GiB, or GB")
