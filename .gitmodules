@@ -1,0 +1,3 @@
+[submodule "symbols"]
+	path = unicode/symbols
+  url = https://github.com/multiverse-os/symbols
