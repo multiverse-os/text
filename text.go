@@ -4,17 +4,18 @@ import (
 	"fmt"
 )
 
-func Box(text string) {
-	l := len(text)
-	fmt.Printf("╭")
+func Box(message string) (output string) {
+	messageLength := len(message)
+	output += fmt.Sprintf("╭")
 	for i := 0; i < l+2; i++ {
-		fmt.Printf("─")
+		output += fmt.Sprintf("─")
 	}
-	fmt.Printf("╮\n")
-	fmt.Printf("│ %v │\n", text)
-	fmt.Printf("╰")
+	output += fmt.Sprintf("╮\n")
+	output += fmt.Sprintf("│ %v │\n", message)
+	output += fmt.Sprintf("╰")
 	for i := 0; i < l+2; i++ {
-		fmt.Printf("─")
+		output += fmt.Sprintf("─")
 	}
-	fmt.Printf("╯\n")
+	output += fmt.Sprintf("╯\n")
+  return  output
 }
