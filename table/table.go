@@ -1,7 +1,3 @@
-// Copyright 2017 modood. All rights reserved.
-// license that can be found in the LICENSE file.
-
-// Package table produces a string that represents slice of structs data in a text table
 package table
 
 import (
@@ -10,6 +6,7 @@ import (
 	"reflect"
 )
 
+// TODO: Seems like there should be a LOT better way to handle this
 type bd struct {
 	H  rune // BOX DRAWINGS HORIZONTAL
 	V  rune // BOX DRAWINGS VERTICAL
