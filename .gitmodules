@@ -1,7 +1,6 @@
 [submodule "symbols"]
 	path = unicode/symbols
   url = https://github.com/multiverse-os/symbols
-
 [submodule "banner"]
 	path = banner
-  url = https://github.com/multiverse-os/banner
+	url = git@github.com:multiverse-os/banner.git
