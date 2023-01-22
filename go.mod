@@ -1,3 +1,3 @@
-module github.com/multiverse-os/cli/terminal/text
+module github.com/multiverse-os/text
 
 go 1.19
