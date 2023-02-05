@@ -1,0 +1,4 @@
+package bullet
+
+// Bullets
+// • ◦ ‣ ⁃ ◘ ❥ ⁌ ⁍ ☙ ❧

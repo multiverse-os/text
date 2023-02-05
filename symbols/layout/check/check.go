@@ -1,0 +1,4 @@
+package check
+
+// Checks
+// ✓ ✔ ✗ ✘
