@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	tree "github.com/multiverse-os/cli/text/tree"
+	tree "github.com/multiverse-os/text/tree"
 )
 
 func main() {
