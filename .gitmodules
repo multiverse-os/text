@@ -1,6 +1,6 @@
-[submodule "symbols"]
-	path = symbols
-  url = git@github.com:multiverse-os/symbols.git
 [submodule "banner"]
 	path = banner
 	url = git@github.com:multiverse-os/banner.git
+[submodule "symbols"]
+	path = symbols
+  url = git@github.com:multiverse-os/symbols.git
